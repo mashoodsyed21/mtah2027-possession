@@ -1,6 +1,6 @@
 # Frame-level ball possession: technical document
 
-More than a Hack 2027, Phase 1. Team 1337, repository `https://github.com/mashood791/mtah2027-possession`,
+More than a Hack 2027, Phase 1. Team 1337, repository `https://github.com/mashoodsyed21/mtah2027-possession`,
 submission `1337.csv`.
 
 All numbers are
