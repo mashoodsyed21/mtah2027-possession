@@ -37,6 +37,10 @@ python -m venv .venv
 .venv/Scripts/python scripts/run_all.py --tag v5_k05 --skip audio   # -> results/final_v5_k05.csv + SHA-256
 ```
 
+**Submitted file:** `1337.csv` = `results/final_v5_k05.csv`, SHA-256
+`0325d257ec549b97a9132a3087b8317a2c79bf0c0797562b6e349cc724f90dbb`. A fresh run on 17 Nov 2026
+reproduced it byte for byte. The submitted code state is tagged `submission-1337`.
+
 `run_all.py` runs exactly these steps (`--from STEP` resumes, `--skip audio` leaves out the
 whistle step the submission does not read):
 

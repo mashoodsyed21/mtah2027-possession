@@ -256,7 +256,8 @@ with today's code (it predates a half-time fix of the `vcx` features), so the fi
 alone. Post-model chain on v5, nested LOMO on DFL raw labels (`final_predict.py --joint`):
 stage 1 0.6000, + stacking (5 seeds) 0.6112, + H↔A edge shift of 1 frame 0.6118. Public window
 (check only, not used for any choice): spellF1 0.667, macroF1 0.902, 13 of 17 possessions.
-File `results/final_v5_k05.csv`, SHA-256 `0325d257…0dbb`.
+File `results/final_v5_k05.csv` (submitted as `1337.csv`), SHA-256
+`0325d257ec549b97a9132a3087b8317a2c79bf0c0797562b6e349cc724f90dbb`.
 
 **A. Frame-model runs**, each with its own tuned decoder (superseded scoring: each run against
 labels coarsened at its own k).
@@ -278,7 +279,7 @@ labels coarsened at its own k).
 **A2. Superseded: choosing a coarsened label granularity.** This range of k came from the public
 window (4.2 possessions per live minute), which is not allowed as a tuning signal; kept for
 reference only, see 4.1 and A0. Each run's out-of-fold DFL decode, scored against DFL labels coarsened at several k
-(`scripts/lab/cross_k.py`):
+(earlier lab script `cross_k.py`, removed; see Section 9):
 
 | Run (trained at k) | k = 1.5 | k = 2.0 | k = 2.5 | k = 3.0 | k = 3.5 | mean |
 |---|---|---|---|---|---|---|
@@ -390,7 +391,7 @@ python ../more-than-a-hack-2027/evaluation/validate_submission.py results/1337.c
 ## 9. Rules compliance
 
 Checked on 3 Nov 2026 against the organisers' clarification ("tune parameters on external data,
-never on the ground-truth possession data or on the provided video").
+never on the ground-truth possession data or on the provided video"), reviewed again on 17 Nov 2026.
 
 - **Training:** only DFL/Sportec open data (CC BY 4.0). The competition match is only predicted.
 - **Every tuned value is chosen on external data:** the decoder (DFL OOF + Metrica, raw labels),
@@ -407,10 +408,22 @@ never on the ground-truth possession data or on the provided video").
 - **Provided data and AI services:** no match data, video, labels or per-frame predictions were
   given to an AI service. The code was written with an AI coding assistant that saw code and
   aggregate scores only.
-- **Open question for the organisers:** the degradation of DFL reuses ball-gap lengths measured on
-  the competition's automatic tracking (no labels, no video) so that the training data looks like
-  the input. We read this as using the provided automatic data as input; if it counts as tuning on
-  non-external data, the fallback is the purely parametric gap model already in `degrade.py`
-  (`pool_share` 0).
+- **Open question for the organisers: input statistics of the competition match.** No labels and
+  no video are involved, but these choices look at the competition's automatic tracking:
+  - the degradation of DFL reuses ball-gap lengths measured on it (`degrade.gap_profile`,
+    30–70% of live gaps), aims at its share of missing ball frames, and sets the ranges of
+    smoothing, jitter, dropouts and stoppage gaps so that degraded DFL resembles it
+    (`scripts/lab/noise_profile.py` compares the two);
+  - `ball_acc` was dropped because its distribution differed most between degraded DFL and the
+    competition tracking (`scripts/lab/domain_check.py`, |AUC − 0.5| > 0.15), not because of any
+    score; on DFL and Metrica removing it changed nothing measurable (Section 2).
+  We read this as using the provided automatic data as input, which the clarification allows,
+  rather than tuning on the ground truth or the video. If the organisers see it differently, the
+  fallback is the purely parametric gap model already in `degrade.py` (`pool_share` 0) with the
+  noise ranges left as they are.
+- **Removed lab tools:** scripts that chose or compared label granularities with the public window
+  or with numbers about the private ground truth (`cross_k.py`, `label_granularity.py`,
+  `anchor_check.py`) are not in the repository; the superseded tables A2/A3 that came from them
+  stay in Section 6 for transparency only.
 - **Licences:** DFL CC BY 4.0 (cited in README). Metrica sample data: published by Metrica Sports
   on GitHub; used for validation and decoder selection only.

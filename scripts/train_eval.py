@@ -217,7 +217,7 @@ def main():
 
     # extra validation domain: Metrica sample games (event-derived labels), degraded
     # scored at the run's own k (comparable within a run) and on the raw event labels (k=0,
-    # comparable across runs: their self-lag profile matches the published private-GT anchors)
+    # comparable across runs; raw labels are the external stand-in for the competition definition)
     val, val0, keep = {}, {}, {}
     for vp in sorted(glob.glob(os.path.join(feat_dir + "_val", "*_s*.npz"))):
         d = load(vp)
