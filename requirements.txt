@@ -1,0 +1,16 @@
+# Pinned from the development environment (CPython 3.13.7, Windows 11).
+# Only the packages the code imports; pip resolves their dependencies.
+#
+# Also needed, not installable from here:
+#   - ffmpeg on PATH (scripts/build_audio.py decodes the video's audio track)
+#   - the official challenge repository next to this one (or POSSESSION_EVAL_DIR / MTAH_REPO /
+#     MTAH_DATA_DIR set): its evaluation/possession_metrics.py is imported unmodified as the scorer
+kloppy==3.19.1
+lightgbm==4.7.0
+lxml==6.1.3
+numba==0.68.0
+numpy==2.5.4
+pandas==3.1.0
+pytest==9.1.1
+scikit-learn==1.9.1
+scipy==1.18.1

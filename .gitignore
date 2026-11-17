@@ -1,0 +1,23 @@
+# never commit match data or anything derived from it
+data/
+extdata/
+results/*.csv
+*.npz
+*.npy
+*.s16
+*.wav
+*.mp4
+
+# environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.nbi
+*.nbc
+.pytest_cache/
+.ipynb_checkpoints/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
