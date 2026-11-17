@@ -18,7 +18,7 @@ For each of the 199,319 frames of FC Barcelona – Athletic Club (tactical camer
 2. **Decoder.** A Viterbi decoder with minimum segment durations and transition costs turns the
    per-frame probabilities into segments. Its parameters are chosen by the official spellF1 on
    leave-one-match-out (LOMO) DFL predictions and on the Metrica sample games, both scored against
-   their raw labels. Every trained or tuned quantity comes from external data (Section 9).
+   their raw labels. Every trained or tuned quantity comes from external data (Section 10).
 
 Why this design:
 
@@ -52,7 +52,7 @@ Why this design:
 | Tactical video, audio track | Referee-whistle detector, evidence that play has just stopped. | no (lab only) |
 | Tactical video, images | Not used. No own detection or tracking. | no |
 | Smart Tagging | Not used (below). | no |
-| Public 5-minute ground truth | Checks format, frame alignment and gross failures. Never used to train or choose parameters (an earlier version chose its label granularity from it; corrected, Section 9). | check only |
+| Public 5-minute ground truth | Checks format, frame alignment and gross failures. Never used to train or choose parameters (an earlier version chose its label granularity from it; corrected, Section 10). | check only |
 | kloppy | Cross-checks our Metrica tracking parser (`build_metrica.py --verify`). | tooling |
 | Pre-trained models, LLMs | None in the pipeline. The code was written with an AI coding assistant that saw code and aggregate scores only, never match data, video or per-frame predictions. | no |
 
@@ -80,7 +80,7 @@ signal.
 and DFL has no equivalent, so it could only enter as a hand-set rule. The only labelled check for
 such a rule on this match is the five-minute public window, too short to set its weight.
 
-**Dropped after measurement** (Section 6):
+**Dropped after measurement** (Section 7):
 
 - Dead-ball model without ball features: worse by 0.06 spellF1 on DFL and 0.06–0.10 on Metrica
   once the v2 degradation and features were in place.
@@ -118,7 +118,7 @@ ranges, so the model does not fit one exact noise level. In order:
    live play, gaps start where players crowd the ball (weight n_within_3m² + 0.2, doubled above
    12 m/s ball speed) until 8–24% of live frames are missing. A share of 30–70% of live gap lengths is drawn from the target match's own gap
    lengths (up to 15 s, measured at runtime from the automatic tracking only, no labels, no
-   video; see Section 9); the rest are lognormal (median 5 s, 3–30 s). Gaps
+   video; see Section 10); the rest are lognormal (median 5 s, 3–30 s). Gaps
    under 0.3 s are closed. False ball detections (0.5 per minute, 6–10 frames) appear next to a
    player inside gaps.
 4. **Jitter.** Slowly drifting errors: players 0.1–0.3 m (correlation time 12 frames), ball
@@ -180,7 +180,7 @@ value of a run only moves its own decoder search, which the final chain replaces
 
 *Superseded:* earlier versions coarsened the labels at k = 2–2.5 s, chosen because that matched the
 public window's spell statistics in this table. That is a choice made on the ground truth and is
-withdrawn (Section 9); the rows above stay for reference.
+withdrawn (Section 10); the rows above stay for reference.
 
 ### 4.2 Where the line is
 
@@ -240,7 +240,64 @@ that has more dead time and a possession-heavy home side. `scripts/lab/noise_pro
    clean DFL and degraded DFL. We also watch the predicted class shares on the full match
    (DFL dead share: 45%).
 
-## 6. Results
+## 6. Development: two approaches, compared and merged
+
+The final model came out of two pipelines built in parallel inside the team, compared under one
+protocol and then merged. Both train only on the seven degraded DFL matches and decode with a
+minimum-duration Viterbi decoder; they differ in how they model the problem.
+
+**Approach A (Florian, "S3").** One three-class LightGBM model (H / A / D) on about 70 features
+that describe the ball and its gaps directly: ball position and speed, the teams' distances to the
+ball, and, for every frame inside a ball gap, where and how fast the ball was last seen and is next
+seen and which team controlled it on either side. DFL is degraded to about 41% missing ball,
+position noise, player dropouts and short occlusion bursts. The decoder (switch costs 4 / 12,
+minimum lengths 25 / 25 frames) is tuned on DFL. Its output is fine-grained: many short
+possessions, close to the raw DFL labels. Earlier variants (rules plus Viterbi, and a blend with a
+second model) were weaker on DFL and dropped. DFL LOMO spellF1 0.562 (raw labels), macroF1 0.891.
+
+**Approach B (Mashood, this repository before the merge).** Three binary, team-symmetric models
+(dead ball, home possession, restart team) on about 220 identity-free features (team shape,
+movement, ball-control history, touch kernels, set-piece templates, gap cues), a second stacking
+stage, and a degradation that also rebuilds the DFL stoppage ball (DFL freezes it and jumps it to
+the restart spot, a cue that real tracking does not have, Section 3). Labels were coarsened at
+2.5 s (short spells absorbed into the previous team), so the output had fewer, longer possessions.
+Strong on dead ball (DFL macroF1 0.91).
+
+**Comparing them fairly.** The two pipelines had reported numbers under different label
+definitions, so we rescored both on the same external targets: raw DFL labels and raw Metrica
+labels. On raw DFL labels B with its own 2.5-s decoder scored 0.530, A 0.562, and B's frame model
+with a fine-grained decoder 0.60 (each pipeline on its own degraded DFL copies, so close to, not
+exactly, the same test). Three conclusions:
+
+1. **Granularity was the main difference, and A had it right.** The competition labels are
+   mechanical and unsmoothed (CHALLENGE.md); A's fine output matches that, B's coarsening threw
+   away real possession changes. The coarsening is dropped, and the decoder is chosen on raw DFL
+   and Metrica labels (4.3).
+2. **Who has the ball matters far more than when it is dead.** Replacing B's team probabilities by
+   the true labels lifts DFL spellF1 (labels coarsened at 0.5 s) from 0.62 to 0.92; replacing the
+   dead-ball probabilities only to 0.65. Team accuracy is 0.91 on frames with the ball visible and 0.82 inside gaps of 6 s or
+   more, so the gap features of A were the most promising transfer.
+3. **B's structure and degradation were the better base.** Its dead-ball model, the stoppage-ball
+   rebuild (A keeps DFL's frozen ball, which the model can learn as a shortcut) and the team
+   symmetry are kept.
+
+**What was transferred and what was rejected.**
+
+| From A into B | Result | Kept |
+|---|---|---|
+| Gap context: ball position, line distance and speed at the last and next sighting, position inside the gap, team control before and after the gap | part of v5 | yes |
+| Front line: the two most advanced players, and how far they stand beyond the opponent's last line | part of v5 | yes |
+| Training frames sampled with a different offset per degraded copy | part of v5 | yes |
+| Occlusion bursts in the degradation | made degraded DFL track even fewer players than the competition tracking (10th percentile 13 against 18; 16 without bursts), so the domain gap grew | no |
+| Fine-grained output | via raw labels and the new decoder objective | yes |
+
+With these changes B's frame model becomes v5 (243 features). Against raw labels v5 reaches
+0.600 on DFL and 0.707 on Metrica with the jointly tuned decoder, and 0.612 on DFL after stacking
+and edge correction (Section 7, table A0). Averaging v5 with the earlier frame models added only
+0.003, inside the noise, so the submission uses v5 alone, which the repository rebuilds byte for
+byte.
+
+## 7. Results
 
 **A0. Final chain (3 Nov 2026).** All on external data, against raw labels (k = 0).
 
@@ -279,7 +336,7 @@ labels coarsened at its own k).
 **A2. Superseded: choosing a coarsened label granularity.** This range of k came from the public
 window (4.2 possessions per live minute), which is not allowed as a tuning signal; kept for
 reference only, see 4.1 and A0. Each run's out-of-fold DFL decode, scored against DFL labels coarsened at several k
-(earlier lab script `cross_k.py`, removed; see Section 9):
+(earlier lab script `cross_k.py`, removed; see Section 10):
 
 | Run (trained at k) | k = 1.5 | k = 2.0 | k = 2.5 | k = 3.0 | k = 3.5 | mean |
 |---|---|---|---|---|---|---|
@@ -335,7 +392,7 @@ file: no broadcast, no whistle.
 **Submitted file:** `1337.csv`, built by `scripts/run_all.py --tag v5_k05` and checked with the official
 `validate_submission.py`.
 
-## 7. Limitations and what we would do with more time
+## 8. Limitations and what we would do with more time
 
 - **Our labels are a proxy for the competition's.** DFL's provider labels may place a turnover
   after a duel, or the start of a stoppage (ball over the line vs whistle), differently from the
@@ -365,7 +422,7 @@ file: no broadcast, no whistle.
   tuning, final chain) reproduced the submitted file byte for byte (SHA-256 `0325d257…0dbb`).
   Not yet checked on a second machine.
 
-## 8. Reproduction
+## 9. Reproduction
 
 Needs Python 3.13 (tested 3.13.7) and the official challenge repository with its `data/` bundle
 next to this one as `../more-than-a-hack-2027` (or set `MTAH_REPO`, `MTAH_DATA_DIR`,
@@ -388,7 +445,7 @@ python ../more-than-a-hack-2027/evaluation/validate_submission.py results/1337.c
 .venv/Scripts/python -m pytest tests
 ```
 
-## 9. Rules compliance
+## 10. Rules compliance
 
 Checked on 3 Nov 2026 against the organisers' clarification ("tune parameters on external data,
 never on the ground-truth possession data or on the provided video"), reviewed again on 17 Nov 2026.
@@ -424,6 +481,6 @@ never on the ground-truth possession data or on the provided video"), reviewed a
 - **Removed lab tools:** scripts that chose or compared label granularities with the public window
   or with numbers about the private ground truth (`cross_k.py`, `label_granularity.py`,
   `anchor_check.py`) are not in the repository; the superseded tables A2/A3 that came from them
-  stay in Section 6 for transparency only.
+  stay in Section 7 for transparency only.
 - **Licences:** DFL CC BY 4.0 (cited in README). Metrica sample data: published by Metrica Sports
   on GitHub; used for validation and decoder selection only.
