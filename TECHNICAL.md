@@ -360,8 +360,9 @@ file: no broadcast, no whistle.
   event-derived labels (built as for Metrica) would make a temporal network over these features
   worth trying.
 - **Reproducibility.** LightGBM runs with `deterministic=True`, fixed seeds and pinned versions.
-  Bit-identical output across machines: not yet verified; run `scripts/run_all.py` twice (or on a
-  second machine) and compare the printed SHA-256.
+  Verified on 17 Nov 2026: a fresh `scripts/run_all.py --tag repro --from train` (training, decoder
+  tuning, final chain) reproduced the submitted file byte for byte (SHA-256 `0325d257…0dbb`).
+  Not yet checked on a second machine.
 
 ## 8. Reproduction
 
